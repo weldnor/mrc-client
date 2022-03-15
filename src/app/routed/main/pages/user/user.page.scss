@@ -1,0 +1,27 @@
+:host {
+  display: flex;
+  justify-content: center;
+
+}
+
+.context {
+  width: fit-content;
+}
+
+.user-info {
+  text-align: center;
+  padding: 10px;
+}
+
+.user-info__name {
+  width: 100%;
+  font-size: 30px;
+}
+
+.user-info__email {
+  width: 100%;
+}
+
+.user-info__edit-button {
+  width: 100%;
+}

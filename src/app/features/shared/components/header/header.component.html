@@ -1,0 +1,18 @@
+<mat-toolbar class="d-flex">
+  <div class="logo" routerLink="/">
+    <div>Mrc</div>
+  </div>
+
+  <div *ngIf="!user" class="flex-grow-1 d-flex justify-content-end">
+    <button mat-button routerLink="/login">login</button>
+    <button mat-button routerLink="/register">register</button>
+  </div>
+
+  <div *ngIf="user" class="flex-grow-1 d-flex justify-content-end">
+    <button [routerLink]="'/users/' + user.userId" mat-button>
+      <strong>{{user.name}}</strong>
+    </button>
+
+    <button (click)="onLogoutButtonClick()" mat-button>logout</button>
+  </div>
+</mat-toolbar>

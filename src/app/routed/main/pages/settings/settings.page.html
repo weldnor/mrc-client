@@ -1,0 +1,36 @@
+<div class="mt-5">
+  <div>Update profile</div>
+
+  <div [formGroup]="updateProfileForm" class="w-100 d-flex flex-column align-content-start">
+    <mat-form-field appearance="fill">
+      <mat-label>Name</mat-label>
+      <input formControlName="username" matInput type="email">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Email</mat-label>
+      <input formControlName="email" matInput>
+    </mat-form-field>
+
+    <button (click)="onUpdateProfileButtonClick()" mat-button>update profile</button>
+  </div>
+
+</div>
+
+<div>
+  <div>Update password</div>
+
+  <div [formGroup]="updatePasswordForm" class="w-100">
+    <mat-form-field appearance="fill" class="w-100">
+      <mat-label>Password</mat-label>
+      <input formControlName="password" matInput type="email">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="w-100">
+      <mat-label>Password</mat-label>
+      <input formControlName="passwordAgain" matInput type="email">
+    </mat-form-field>
+  </div>
+  <button (click)="onUpdatePasswordButtonClick()" mat-button>update password</button>
+</div>
+

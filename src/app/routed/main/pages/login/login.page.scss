@@ -1,0 +1,15 @@
+$header-width: 64px; //HACK?
+
+:host {
+  width: 100%;
+  height: calc(100% - #{$header-width});
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+}

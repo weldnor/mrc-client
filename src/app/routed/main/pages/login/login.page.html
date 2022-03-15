@@ -1,0 +1,19 @@
+<div class="login-form">
+  <h2 class="text-center mb-3">Sign in</h2>
+
+  <div class="mat-error">{{errorMessage}}</div>
+
+  <div [formGroup]="loginForm" class="w-100">
+    <mat-form-field appearance="fill" class="w-100">
+      <mat-label>email</mat-label>
+      <input formControlName="email" matInput type="email">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="w-100">
+      <mat-label>Password</mat-label>
+      <input formControlName="password" matInput type="password">
+    </mat-form-field>
+  </div>
+
+  <button (click)="onLoginButtonClick()" color="primary" mat-raised-button>login</button>
+</div>
