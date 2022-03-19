@@ -1,6 +1,9 @@
 import {Component, OnInit} from '@angular/core';
 import {AuthService} from '../../../core/services/auth.service';
 import {User} from '../../../core/models/user.model';
+import {switchMap} from "rxjs/operators";
+import {UserService} from "../../../core/services/user.service";
+import {of} from "rxjs";
 
 @Component({
   selector: 'app-header',
@@ -9,18 +12,23 @@ import {User} from '../../../core/models/user.model';
 })
 export class HeaderComponent implements OnInit {
 
-  isAuthorized = false;
   user: User | undefined;
 
   constructor(
     private readonly authService: AuthService,
+    private readonly userService: UserService,
   ) {
-    // this.currentUserService.user$.subscribe(user => {
-    //   this.user = user;
-    // });
   }
 
   ngOnInit(): void {
+    this.authService.$authorized.pipe(
+      switchMap(authorized => {
+        console.log(authorized);
+        return authorized ? this.userService.getUser(this.authService.getUserId()) : of(undefined);
+      })
+    ).subscribe(user => {
+      this.user = user;
+    })
   }
 
   onLogoutButtonClick(): void {
