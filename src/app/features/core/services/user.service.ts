@@ -15,18 +15,10 @@ export class UserService {
   }
 
   getAllUsers(): Observable<User[]> {
-    return this.http.get<User[]>(`${environment.apiUrl}/api/v1/users`);
+    return this.http.get<User[]>(`${environment.apiUrl}/api/users`);
   }
 
   getUser(userId: number): Observable<User> {
-    return this.http.get<User>(`${environment.apiUrl}/api/v1/users/${userId}`);
-  }
-
-  login(loginRequest: LoginRequest): Observable<User> {
-    return this.http.post<User>(`${environment.apiUrl}/api/v1/public/login`, loginRequest);
-  }
-
-  register(newUser: NewUser): Observable<User> {
-    return this.http.post<User>(`/api/v1/public/register`, newUser);
+    return this.http.get<User>(`${environment.apiUrl}/api/users/${userId}`);
   }
 }

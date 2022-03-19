@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiHost: 'mrc21-backend.herokuapp.com',
-  apiUrl: 'https://mrc21-backend.herokuapp.com',
+  apiHost: '194.67.116.35',
+  apiUrl: 'http://194.67.116.35',
 };

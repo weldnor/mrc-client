@@ -5,7 +5,7 @@
     <h4 class="mt-2 w-100">{{user.email}}</h4>
   </div>
 
-  <div *ngIf="user && user?.userId == currentUser?.userId" class="w-100">
+  <div *ngIf="user && user?.id == currentUser?.id" class="w-100">
     <button mat-button routerLink="/settings">edit</button>
   </div>
 

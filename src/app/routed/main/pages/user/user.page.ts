@@ -1,7 +1,6 @@
 import {Component, OnInit} from '@angular/core';
 import {UserService} from '../../../../features/core/services/user.service';
 import {User} from '../../../../features/core/models/user.model';
-import {CurrentUserService} from '../../../../features/core/services/current-user.service';
 import {ActivatedRoute} from '@angular/router';
 
 @Component({
@@ -16,18 +15,16 @@ export class UserPage implements OnInit {
 
   constructor(
     private readonly userService: UserService,
-    private readonly currentUserService: CurrentUserService,
     private readonly route: ActivatedRoute,
   ) {
-
-    currentUserService.user$.subscribe(value => {
-      this.currentUser = value;
-    });
-
-    const userId = route.snapshot.params.id;
-    this.userService.getUser(userId).subscribe(value => {
-      this.user = value;
-    });
+    // currentUserService.user$.subscribe(value => {
+    //   this.currentUser = value;
+    // });
+    //
+    // const userId = route.snapshot.params.id;
+    // this.userService.getUser(userId).subscribe(value => {
+    //   this.user = value;
+    // });
   }
 
   ngOnInit(): void {

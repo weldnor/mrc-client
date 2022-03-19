@@ -9,7 +9,7 @@
   </div>
 
   <div *ngIf="user" class="flex-grow-1 d-flex justify-content-end">
-    <button [routerLink]="'/users/' + user.userId" mat-button>
+    <button [routerLink]="'/users/' + user.id" mat-button>
       <strong>{{user.name}}</strong>
     </button>
 

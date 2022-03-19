@@ -36,7 +36,7 @@ export class RegisterPage implements OnInit {
 
     this.authService.register({name, email, password}).subscribe(
       (user) => {
-        this.route.navigate([`/users/${user.userId}`]);
+        this.route.navigate([`/users/${user.id}`]);
       },
       () => {
         this.errorMessage = 'oops!'; // FIXME

@@ -13,10 +13,10 @@ export class RoomService {
   }
 
   getAllRooms(): Observable<Room[]> {
-    return this.http.get<Room[]>(`${environment.apiUrl}/api/v1/rooms`);
+    return this.http.get<Room[]>(`${environment.apiUrl}/api/rooms`);
   }
 
   getRoom(roomId: number): Observable<Room> {
-    return this.http.get<Room>(`${environment.apiUrl}/api/v1/rooms/${roomId}`);
+    return this.http.get<Room>(`${environment.apiUrl}/api/rooms/${roomId}`);
   }
 }
