@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "mrc-frontend": {
+    "mrc-client": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -13,7 +13,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "outputPath": "dist/mrc-frontend",
+            "outputPath": "dist/mrc-client",
             "index": "src/index.html",
             "main": "src/main.ts",
             "polyfills": "src/polyfills.ts",
@@ -63,18 +63,18 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "mrc-frontend:build"
+            "browserTarget": "mrc-client:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "mrc-frontend:build:production"
+              "browserTarget": "mrc-client:build:production"
             }
           }
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "mrc-frontend:build"
+            "browserTarget": "mrc-client:build"
           }
         },
         "test": {
@@ -111,11 +111,11 @@
           "builder": "@angular-devkit/build-angular:protractor",
           "options": {
             "protractorConfig": "e2e/protractor.conf.js",
-            "devServerTarget": "mrc-frontend:serve"
+            "devServerTarget": "mrc-client:serve"
           },
           "configurations": {
             "production": {
-              "devServerTarget": "mrc-frontend:serve:production"
+              "devServerTarget": "mrc-client:serve:production"
             }
           }
         }
@@ -127,5 +127,5 @@
       "style": "scss"
     }
   },
-  "defaultProject": "mrc-frontend"
+  "defaultProject": "mrc-client"
 }

@@ -22,10 +22,10 @@ const forceSSL = function () {
 
 app.use(forceSSL());
 
-app.use(express.static('./dist/mrc-frontend'));
+app.use(express.static('./dist/mrc-client'));
 
 app.get('/*', (req, res) =>
-  res.sendFile('index.html', {root: 'dist/mrc-frontend/'}),
+  res.sendFile('index.html', {root: 'dist/mrc-client/'}),
 );
 
 app.listen(process.env.PORT || 8080);
