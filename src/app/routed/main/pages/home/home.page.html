@@ -9,5 +9,5 @@
 <h2>rooms</h2>
 
 <div *ngFor="let room of rooms">
-  <div>{{room.id}}</div>
+  <a [routerLink]="'/rooms/' + room.id">{{room.id}}</a>
 </div>
