@@ -1,38 +1,32 @@
-import {Component, OnDestroy, OnInit} from '@angular/core';
-import {RoomService} from "../../../../features/core/services/room.service";
-import {StreamService} from "../../../../features/core/services/stream.service";
-import {ActivatedRoute} from "@angular/router";
-import {WebsocketService} from "../../../../features/core/services/websocket.service";
+import {AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
+import {FormControl} from "@angular/forms";
+import {KurentoService} from "../../../../features/core/services/kurento.service";
 
 @Component({
   selector: 'app-room',
   templateUrl: './room.page.html',
   styleUrls: ['./room.page.scss']
 })
-export class RoomPage implements OnInit, OnDestroy {
+export class RoomPage implements AfterViewInit {
 
-  roomId: string;
+  @ViewChild('root') rootElement!: ElementRef;
+  userIdForm = new FormControl('');
+  // private userId = 1;
+  private roomId = 1;
 
   constructor(
-    private readonly roomService: RoomService,
-    private readonly streamService: StreamService,
-    private readonly route: ActivatedRoute,
-    private readonly websocketService: WebsocketService,
+    private readonly kurentoService: KurentoService
   ) {
+
   }
 
-  async ngOnInit() {
-    this.roomId = this.route.snapshot.paramMap.get('id');
 
-    let client = await this.websocketService.getClient();
-    client.subscribe("/queue/test", message => {
-      console.log(message.body);
-    })
+  ngAfterViewInit(): void {
 
-    client.send("/app/test/echo", {}, "hello world!");
   }
 
-  ngOnDestroy(): void {
-    // nothing there
+  onConnectButtonClick(): void {
+    const userId = +this.userIdForm.value;
+    this.kurentoService.start(userId, this.roomId, this.rootElement.nativeElement);
   }
 }
