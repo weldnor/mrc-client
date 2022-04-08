@@ -4,6 +4,7 @@ import * as kurentoUtils from 'kurento-utils';
 import {Participant} from '../participant';
 import {environment} from '../../../../environments/environment';
 import {interval, Subscription} from 'rxjs';
+import {MediaDevicesService} from "./media-devices.service";
 
 @Injectable({
   providedIn: 'root'
@@ -21,7 +22,9 @@ export class KurentoService {
 
   private timerSubscription: Subscription;
 
-  constructor() {
+  constructor(
+    private readonly mediaDevicesService: MediaDevicesService,
+  ) {
   }
 
   start(userId: number, roomId: number, rootElement: HTMLElement): void {
@@ -30,6 +33,8 @@ export class KurentoService {
     // connect to ws
     const protocol = environment.production ? 'wss' : 'ws';
     const wsUrl = `${protocol}://${environment.apiHost}/ws`;
+
+    console.log(wsUrl);
 
     this.ws = new WebSocketSubject(wsUrl);
 
@@ -118,16 +123,8 @@ export class KurentoService {
     console.log(msg);
 
     // ограничения на исходящее видео
-    const constraints = {
-      audio: true,
-      video: {
-        mandatory: {
-          maxWidth: 320,
-          maxFrameRate: 15,
-          minFrameRate: 15
-        }
-      }
-    };
+    const constraints = this.getConstraints();
+    console.log(constraints);
 
     console.log(this.userId + ' registered in room ' + this.roomId);
 
@@ -145,7 +142,7 @@ export class KurentoService {
     };
 
     participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options,
-      function(error): void {
+      function (error): void {
         if (error) {
           return console.error(error);
         }
@@ -186,7 +183,7 @@ export class KurentoService {
     };
 
     participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options,
-      function(error): void {
+      function (error): void {
         if (error) {
           return console.error(error);
         }
@@ -235,5 +232,27 @@ export class KurentoService {
     }
     this.zoomedParticipant = participant;
     participant.zoomIn();
+  }
+
+  getConstraints() {
+    let constraints = {};
+
+    let selectedVideoDevice = this.mediaDevicesService.selectedVideoDevice;
+    if (selectedVideoDevice) {
+      constraints['video'] = {deviceId: selectedVideoDevice.deviceId};
+    }
+
+    let selectedAudioDevice = this.mediaDevicesService.selectedAudioDevice;
+    if (selectedAudioDevice) {
+      constraints['audio'] = {deviceId: selectedAudioDevice.deviceId};
+    }
+
+    if (Object.keys(constraints).length == 0) {
+      throw Error('cant find media devices');
+    }
+
+    console.log(constraints);
+
+    return constraints;
   }
 }

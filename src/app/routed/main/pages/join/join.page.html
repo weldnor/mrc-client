@@ -1,0 +1,22 @@
+<div>join to room {{ roomId }}</div>
+
+
+<div>
+  <div>audio devices:</div>
+
+  <div *ngFor="let device of audioDevices">
+    <a (click)="selectAudioDevice(device)">{{device.deviceId}}</a>
+  </div>
+</div>
+
+
+<div>
+  <div>video devices:</div>
+
+  <div *ngFor="let device of videoDevices">
+    <a (click)="selectVideoDevice(device)">{{device.deviceId}}</a>
+  </div>
+</div>
+
+
+<button (click)="onJoinButtonClick()">join</button>
