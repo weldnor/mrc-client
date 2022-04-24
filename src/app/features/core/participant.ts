@@ -1,6 +1,6 @@
 import {WebSocketSubject} from 'rxjs/internal-compatibility';
 import {WebRtcPeer} from 'kurento-utils';
-import {KurentoService} from './services/kurento.service';
+import {StreamService} from './services/stream.service';
 
 export class Participant {
 
@@ -13,7 +13,7 @@ export class Participant {
   constructor(
     private readonly userId: number,
     private readonly ws: WebSocketSubject<any>,
-    private readonly kurentoService: KurentoService,
+    private readonly streamService: StreamService,
   ) {
     this.createHtmlView();
   }

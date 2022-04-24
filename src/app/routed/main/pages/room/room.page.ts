@@ -1,6 +1,6 @@
 import {AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {FormControl} from "@angular/forms";
-import {KurentoService} from "../../../../features/core/services/kurento.service";
+import {StreamService} from "../../../../features/core/services/stream.service";
 
 @Component({
   selector: 'app-room',
@@ -15,7 +15,7 @@ export class RoomPage implements AfterViewInit {
   private roomId = 1;
 
   constructor(
-    private readonly kurentoService: KurentoService
+    private readonly kurentoService: StreamService
   ) {
 
   }
