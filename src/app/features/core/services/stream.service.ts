@@ -1,258 +1,261 @@
 import {Injectable} from '@angular/core';
 import {WebSocketSubject} from 'rxjs/internal-compatibility';
-import * as kurentoUtils from 'kurento-utils';
 import {Participant} from '../participant';
 import {environment} from '../../../../environments/environment';
-import {interval, Subscription} from 'rxjs';
-import {MediaDevicesService} from "./media-devices.service";
+import {getIceServers} from "../util/webrtc.utils"
+
 
 @Injectable({
   providedIn: 'root'
 })
 export class StreamService {
-  private userId: number;
-
-  private roomId: number;
+  private userId: string;
+  private roomId: string;
   private rootElement: HTMLElement;
+
+  private participants: Participant[] = [];
 
   private ws: WebSocketSubject<any>;
 
-  private participants = new Map<number, Participant>();
-  private zoomedParticipant: Participant | undefined;
+  private myPeerConnection?: RTCPeerConnection;
 
-  private timerSubscription: Subscription;
-
-  constructor(
-    private readonly mediaDevicesService: MediaDevicesService,
-  ) {
+  constructor() {
   }
 
-  start(userId: number, roomId: number, rootElement: HTMLElement): void {
-    console.log('start');
-
-    // connect to ws
-    const protocol = environment.production ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${environment.apiHost}/ws`;
-
-    console.log(wsUrl);
-
-    this.ws = new WebSocketSubject(wsUrl);
-
-    this.timerSubscription = interval(10000).subscribe(() => {
-      this.sendMessage({id: 'ping'});
-    });
-
+  async start(userId: string, roomId: string, rootElement: HTMLElement) {
     this.userId = userId;
     this.roomId = roomId;
     this.rootElement = rootElement;
 
+    // connect to ws
+    const protocol = environment.production ? 'wss' : 'ws';
+    const wsUrl = `${protocol}://${environment.apiHost}/ws`;
+    console.log(`connecting to ${wsUrl}`);
+
+    this.ws = new WebSocketSubject(wsUrl);
+
+    // init ui
     this.initHtmlView();
 
     this.ws.subscribe(value => {
       this.handleMessage(value);
     });
 
-    this.joinRoom();
+    this.join();
+    await this.sendSdpOffer();
+    this.getParticipants();
   }
 
-  dispose(): void {
-    this.timerSubscription.unsubscribe();
-    this.ws.complete();
-  }
 
   initHtmlView(): void {
     this.rootElement.style.display = 'flex';
   }
 
   handleMessage(message: any): void {
-    console.log('handleMessage');
+    console.log(message);
 
-    switch (message.id) {
-      case 'existingParticipants':
-        this.onExistingParticipants(message);
+    switch (message.type) {
+      case 'participants':
+        this.onParticipantsMessage(message.participantIds);
         break;
-      case 'newParticipantArrived':
-        this.onNewParticipantArrived(message);
+      case 'sdp-offer':
+        this.onSdpOfferMessage(message.userId, message.sdpOffer);
         break;
-      case 'participantLeft':
-        this.onParticipantLeft(message);
+      case 'sdp-answer':
+        this.onSdpAnswerMessage(message.userId, message.sdpAnswer);
         break;
-      case 'receiveVideoAnswer':
-        this.onReceiveVideoAnswer(message);
-        break;
-      case 'iceCandidate':
-        this.onIceCandidate(message);
-        break;
-      case 'pong':
-        this.onPong();
+      case 'ice-candidate':
+        this.onIceCandidateMessage(message.userId, message.candidate);
         break;
       default:
         console.error('Unrecognized message', message);
     }
   }
 
-  joinRoom(): void {
-    console.log('register');
+  private async onSdpOfferMessage(targetId: string, sdpOffer) {
+    console.log('onSdpOfferMessage');
+
+    const participant = this.participants.filter(value => value.userId == targetId)[0];
+
+    const description: RTCSessionDescriptionInit = {'sdp': sdpOffer, 'type': 'offer'};
+
+    await participant.connection.setRemoteDescription(new RTCSessionDescription(description));
+    const answer = await participant.connection.createAnswer();
+    await participant.connection.setLocalDescription(answer);
+
     const message = {
-      id: 'joinRoom',
+      type: 'sdp-answer',
       userId: this.userId,
-      roomId: this.roomId,
+      targetId: targetId,
+      sdpAnswer: answer.sdp,
     };
-    console.log(message);
+
     this.sendMessage(message);
   }
 
-  onNewParticipantArrived(request): void {
-    console.log('onNewParticipantArrived');
-    this.receiveVideoFrom(request.userId);
+  private async onIceCandidateMessage(userId: string, candidate) {
+    console.log('onIceCandidateMessage');
+
+    if (userId == this.userId) {
+      await this.myPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      return;
+    }
+
+    const participant = this.participants.filter(value => value.userId == userId)[0];
+    await participant.connection.addIceCandidate(new RTCIceCandidate(candidate));
   }
 
-  onReceiveVideoAnswer(result): void {
-    console.log('onReceiveVideoAnswer');
-    console.log(this.participants);
-    console.log(result);
-    this.participants[result.userId].rtcPeer.processAnswer(result.sdpAnswer, error => {
-      if (error) {
-        return console.error(error);
-      }
-    });
-  }
+  async onSdpAnswerMessage(userId, sdpAnswer) {
+    console.log('onSdpAnswerMessage')
 
-  onExistingParticipants(msg): void {
-    console.log('onExistingParticipants');
-    console.log(msg);
-
-    // ограничения на исходящее видео
-    const constraints = this.getConstraints();
-    console.log(constraints);
-
-    console.log(this.userId + ' registered in room ' + this.roomId);
-
-    const participant = new Participant(this.userId, this.ws, this);
-    this.participants[this.userId] = participant;
-
-    this.rootElement.appendChild(participant.container);
-
-    console.log(participant.video)
-
-    const options = {
-      localVideo: participant.video,
-      mediaConstraints: constraints,
-      onicecandidate: participant.onIceCandidate.bind(participant)
-    };
-
-    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options,
-      function (error): void {
-        if (error) {
-          return console.error(error);
-        }
-        this.generateOffer(participant.offerToReceiveVideo.bind(participant));
-      });
-
-    // подключаем других участников
-    for (const userId of msg.data) {
-      this.receiveVideoFrom(userId);
+    if (userId == this.userId) {
+      const description: RTCSessionDescriptionInit = {'sdp': sdpAnswer, 'type': 'answer'};
+      await this.myPeerConnection.setRemoteDescription(description)
     }
   }
 
+  private onParticipantsMessage(participantIds: string[]) {
+    console.log('onParticipantsMessage')
 
-  leaveRoom(): void {
-    console.log('leaveRoom');
-    this.sendMessage({
-      id: 'leaveRoom'
-    });
+    console.log(`received participantIds: ${participantIds}`);
 
-    // tslint:disable-next-line:forin
-    for (const key in this.participants) {
-      this.participants[key].dispose();
+    let oldParticipantIds = this.participants.map(value => value.userId);
+    oldParticipantIds.push(this.userId);
+
+    let difference = participantIds.filter(x => !oldParticipantIds.includes(x));
+
+    for (let participantId of difference) {
+      this.addNewParticipant(participantId);
+      this.sendGetVideoMessage(participantId);
     }
 
-    this.ws.complete(); // ?
   }
 
-  receiveVideoFrom(userId): void {
-    console.log('receiveVideo');
-    const participant = new Participant(userId, this.ws, this);
-    this.participants[userId] = participant;
+  join() {
+    console.log('join to room');
 
-    this.rootElement.appendChild(participant.container);
+    const message = {
+      type: 'join',
+      userId: this.userId,
+      roomId: this.roomId,
+    };
+    this.sendMessage(message);
+  }
 
-    const options = {
-      remoteVideo: participant.video,
-      onicecandidate: participant.onIceCandidate.bind(participant)
+  getParticipants() {
+    console.log('get participants');
+
+    const message = {
+      type: 'get-participants',
+      userId: this.userId,
+      roomId: this.roomId,
+    };
+    this.sendMessage(message);
+  }
+
+  async sendSdpOffer() {
+    // create local connection
+    this.myPeerConnection = new RTCPeerConnection({
+      iceServers: getIceServers(),
+    });
+
+    // add tracks to peer connection
+    let mediaStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+    mediaStream.getTracks().forEach(track => this.myPeerConnection.addTrack(track));
+
+    let videoElement: HTMLVideoElement = document.createElement('video');
+    videoElement.height = 100;
+    videoElement.width = 100;
+    this.rootElement.appendChild(videoElement);
+
+
+    this.myPeerConnection.onicecandidate = e => {
+      const message = {
+        type: 'ice-candidate',
+        userId: this.userId,
+        targetId: this.userId,
+      };
+
+      if (e.candidate) {
+        message['candidate'] = e.candidate.candidate;
+        message['sdpMid'] = e.candidate.sdpMid;
+        message['sdpMLineIndex'] = e.candidate.sdpMLineIndex;
+      }
+
+      this.sendMessage(message);
     };
 
-    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options,
-      function (error): void {
-        if (error) {
-          return console.error(error);
-        }
-        this.generateOffer(participant.offerToReceiveVideo.bind(participant));
-      });
+    videoElement.srcObject = mediaStream;
 
+    let offer = await this.myPeerConnection.createOffer();
+    await this.myPeerConnection.setLocalDescription(offer);
+
+
+    const message = {
+      type: 'sdp-offer',
+      userId: this.userId,
+      targetId: this.userId,
+      sdpOffer: offer.sdp,
+    };
+
+    this.sendMessage(message);
   }
 
-  onParticipantLeft(request): void {
-    const userId = request.userId;
-    console.log('onParticipantLeft');
-    console.log('Participant ' + userId + ' left');
-    this.deleteParticipant(userId);
-  }
-
-  deleteParticipant(userId: number): void {
-    const participant = this.participants[userId];
-    participant.dispose();
-    delete this.participants[userId];
-  }
-
-  onIceCandidate(message: any): void {
-    const userId = message.userId;
-    const candidate = message.candidate;
-    this.participants[userId].rtcPeer.addIceCandidate(candidate, error => {
-      if (error) {
-        console.error('Error adding candidate: ' + error);
-        return;
-      }
-    });
-  }
-
-  onPong(): void {
-    console.debug('pong!');
+  dispose(): void {
+    this.ws.complete();
   }
 
   sendMessage(message): void {
     console.log('sendMessage');
-    console.log(`Sending message with id: ${message.id}`);
+    console.log(`Sending message with type: ${message.type}`);
     this.ws.next(message);
   }
 
-  onZoom(participant: Participant): void {
-    if (this.zoomedParticipant) {
-      this.zoomedParticipant.zoomOut();
-    }
-    this.zoomedParticipant = participant;
-    participant.zoomIn();
+  private sendGetVideoMessage(targetId: string) {
+    const message = {
+      type: 'get-video',
+      userId: this.userId,
+      targetId: targetId,
+    };
+    this.sendMessage(message);
   }
 
-  getConstraints() {
-    let constraints = {};
+  private addNewParticipant(participantId: string) {
+    let videoElement: HTMLVideoElement = document.createElement('video');
+    videoElement.height = 100;
+    videoElement.width = 100;
 
-    let selectedVideoDevice = this.mediaDevicesService.selectedVideoDevice;
-    if (selectedVideoDevice) {
-      constraints['video'] = {deviceId: selectedVideoDevice.deviceId};
+    this.rootElement.appendChild(videoElement);
+
+    const peerConnection = new RTCPeerConnection({iceServers: getIceServers()});
+    peerConnection.onicecandidate = e => {
+      const message = {
+        type: 'ice-candidate',
+        userId: this.userId,
+        targetId: participantId,
+      };
+
+      if (e.candidate) {
+        message['candidate'] = e.candidate.candidate;
+        message['sdpMid'] = e.candidate.sdpMid;
+        message['sdpMLineIndex'] = e.candidate.sdpMLineIndex;
+      }
+
+      this.sendMessage(message);
+    };
+
+    peerConnection.ontrack = ev => {
+      console.log('hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh')
+      console.log(ev)
+      videoElement.autoplay = true;
+      videoElement.srcObject = ev.streams[0];
+      videoElement.height = 300;
+      videoElement.width = 300;
     }
 
-    let selectedAudioDevice = this.mediaDevicesService.selectedAudioDevice;
-    if (selectedAudioDevice) {
-      constraints['audio'] = {deviceId: selectedAudioDevice.deviceId};
-    }
-
-    if (Object.keys(constraints).length == 0) {
-      throw Error('cant find media devices');
-    }
-
-    console.log(constraints);
-
-    return constraints;
+    const participant = new Participant(participantId, peerConnection);
+    this.participants.push(participant);
   }
+
+
 }

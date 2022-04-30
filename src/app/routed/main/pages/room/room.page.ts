@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, ElementRef, ViewChild} from '@angular/core';
 import {FormControl} from "@angular/forms";
 import {StreamService} from "../../../../features/core/services/stream.service";
 
@@ -11,8 +11,8 @@ export class RoomPage implements AfterViewInit {
 
   @ViewChild('root') rootElement!: ElementRef;
   userIdForm = new FormControl('');
-  // private userId = 1;
-  private roomId = 1;
+
+  private readonly roomId = "1";
 
   constructor(
     private readonly kurentoService: StreamService
@@ -25,8 +25,8 @@ export class RoomPage implements AfterViewInit {
 
   }
 
-  onConnectButtonClick(): void {
-    const userId = +this.userIdForm.value;
-    this.kurentoService.start(userId, this.roomId, this.rootElement.nativeElement);
+  async onConnectButtonClick() {
+    const userId = this.userIdForm.value;
+    await this.kurentoService.start(userId, this.roomId, this.rootElement.nativeElement);
   }
 }
