@@ -17,3 +17,7 @@ const iceServers: RTCIceServer[] = [
 export function getIceServers() {
   return iceServers;
 }
+
+export function getMediaConstraints() {
+  return {video: true, audio: true}
+}

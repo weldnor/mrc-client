@@ -3,7 +3,7 @@ import {WebSocketSubject} from 'rxjs/internal-compatibility';
 import * as kurentoUtils from 'kurento-utils';
 import {Participant} from '../participant';
 import {environment} from '../../../../environments/environment';
-import {MediaDevicesService} from "./media-devices.service";
+import {getMediaConstraints} from "../util/webrtc.utils";
 
 @Injectable({
   providedIn: 'root'
@@ -17,28 +17,22 @@ export class StreamService {
   private ws: WebSocketSubject<any>;
 
   private participants = new Map<string, Participant>();
-  private zoomedParticipant: Participant | undefined;
 
-
-  constructor(
-    private readonly mediaDevicesService: MediaDevicesService,
-  ) {
+  constructor() {
   }
 
-  start(userId: string, roomId: string, rootElement: HTMLElement): void {
+  public start(userId: string, roomId: string, rootElement: HTMLElement): void {
     console.log('start');
+
+    this.userId = userId;
+    this.roomId = roomId;
+    this.rootElement = rootElement;
 
     // connect to ws
     const protocol = environment.production ? 'wss' : 'ws';
     const wsUrl = `${protocol}://${environment.apiHost}/ws`;
 
-    console.log(wsUrl);
-
     this.ws = new WebSocketSubject(wsUrl);
-
-    this.userId = userId;
-    this.roomId = roomId;
-    this.rootElement = rootElement;
 
     this.initHtmlView();
 
@@ -46,52 +40,38 @@ export class StreamService {
       this.handleMessage(value);
     });
 
-    this.joinRoom();
+    this.join();
   }
 
-  dispose(): void {
+  public stop(): void {
     this.ws.complete();
   }
 
-  initHtmlView(): void {
-    this.rootElement.style.display = 'flex';
+  private join(): void {
+    console.log(`join to room with id: ${this.roomId}`);
+    this.sendJoinMessage();
   }
 
-  handleMessage(message: any): void {
+  private handleMessage(message: any): void {
     console.log('handleMessage');
 
     switch (message.type) {
       case 'participants':
-        this.onExistingParticipants(message.participantIds);
+        this.onParticipantsMessage(message.participantIds);
         break;
       case 'sdp-answer':
-        this.onReceiveVideoAnswer(message.userId, message.sdpAnswer);
+        this.onSdpAnswerMessage(message.userId, message.sdpAnswer);
         break;
       case 'ice-candidate':
-        this.onIceCandidate(message.userId, message.candidate);
+        this.onIceCandidateMessage(message.userId, message.candidate);
         break;
       default:
-        console.error('Unrecognized message', message);
+        throw new Error(`Unrecognized message: ${message}`);
     }
   }
 
-  joinRoom(): void {
-    console.log('register');
-    const message = {
-      type: 'join',
-      userId: this.userId,
-      roomId: this.roomId,
-    };
-    console.log(message);
-    this.sendMessage(message);
-  }
 
-  onNewParticipantArrived(request): void {
-    console.log('onNewParticipantArrived');
-    this.receiveVideoFrom(request.userId);
-  }
-
-  onReceiveVideoAnswer(userId, sdpAnswer: any): void {
+  private onSdpAnswerMessage(userId, sdpAnswer: any): void {
     console.log('onReceiveVideoAnswer');
     console.log(this.participants);
     this.participants[userId].rtcPeer.processAnswer(sdpAnswer, error => {
@@ -101,7 +81,7 @@ export class StreamService {
     });
   }
 
-  onExistingParticipants(participantIds): void {
+  private onParticipantsMessage(participantIds): void {
     console.log('onExistingParticipants');
     console.log(participantIds);
 
@@ -111,70 +91,20 @@ export class StreamService {
 
     console.log(this.userId + ' registered in room ' + this.roomId);
 
-    const participant = new Participant(this.userId, this.ws, this.userId);
-    this.participants[this.userId] = participant;
-
-    this.rootElement.appendChild(participant.container);
-
-    console.log(participant.video)
-
-    const options = {
-      localVideo: participant.video,
-      mediaConstraints: constraints,
-      onicecandidate: participant.onIceCandidate.bind(participant)
-    };
-
-    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options,
-      function (error): void {
-        if (error) {
-          return console.error(error);
-        }
-        this.generateOffer(participant.offerToReceiveVideo.bind(participant));
-      });
+    const localParticipant = this.createLocalParticipant();
+    this.participants[this.userId] = localParticipant;
+    this.rootElement.appendChild(localParticipant.containerElement);
 
     // подключаем других участников
     for (const participantId of participantIds) {
-      this.receiveVideoFrom(participantId);
+      const participant = this.createRemoteParticipant(participantId);
+
+      this.participants[participantId] = participant;
+      this.rootElement.appendChild(participant.containerElement);
     }
   }
 
-
-  receiveVideoFrom(userId): void {
-    console.log('receiveVideo');
-    const participant = new Participant(userId, this.ws, this.userId);
-    this.participants[userId] = participant;
-
-    this.rootElement.appendChild(participant.container);
-
-    const options = {
-      remoteVideo: participant.video,
-      onicecandidate: participant.onIceCandidate.bind(participant)
-    };
-
-    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options,
-      function (error): void {
-        if (error) {
-          return console.error(error);
-        }
-        this.generateOffer(participant.offerToReceiveVideo.bind(participant));
-      });
-
-  }
-
-  onParticipantLeft(request): void {
-    const userId = request.userId;
-    console.log('onParticipantLeft');
-    console.log('Participant ' + userId + ' left');
-    this.deleteParticipant(userId);
-  }
-
-  deleteParticipant(userId: number): void {
-    const participant = this.participants[userId];
-    participant.dispose();
-    delete this.participants[userId];
-  }
-
-  onIceCandidate(userId: any, candidate): void {
+  private onIceCandidateMessage(userId: any, candidate): void {
     this.participants[userId].rtcPeer.addIceCandidate(candidate, error => {
       if (error) {
         console.error('Error adding candidate: ' + error);
@@ -183,8 +113,77 @@ export class StreamService {
     });
   }
 
-  onPong(): void {
-    console.debug('pong!');
+  private createLocalParticipant(): Participant {
+    const participant = new Participant(this.userId);
+
+    const options = {
+      localVideo: participant.videoElement,
+      mediaConstraints: getMediaConstraints(),
+      onicecandidate: (candidate) => this.sendIceCandidateMessage(this.userId, candidate),
+    };
+
+    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, error => {
+        if (error) {
+          return console.error(error);
+        }
+        participant.rtcPeer.generateOffer((error, sdp) => this.sendGetVideoMessage(this.userId, sdp));
+      }
+    );
+
+    return participant;
+  }
+
+  private createRemoteParticipant(userId: string) {
+    const participant = new Participant(userId);
+
+    const options = {
+      remoteVideo: participant.videoElement,
+      onicecandidate: (candidate) => this.sendIceCandidateMessage(userId, candidate),
+    };
+
+    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options, error => {
+      if (error) {
+        return console.error(error);
+      }
+      participant.rtcPeer.generateOffer((error, sdp) => this.sendGetVideoMessage(userId, sdp));
+    });
+
+    return participant;
+  }
+
+
+  private sendJoinMessage() {
+    const message = {
+      type: 'join',
+      userId: this.userId,
+      roomId: this.roomId,
+    };
+    this.sendMessage(message);
+  }
+
+  private sendIceCandidateMessage(targetId: string, candidate) {
+    const message = {
+      type: 'ice-candidate',
+      userId: this.userId,
+      targetId: targetId,
+    };
+
+    if (candidate.candidate) {
+      message['candidate'] = candidate.candidate;
+      message['sdpMid'] = candidate.sdpMid;
+      message['sdpMLineIndex'] = candidate.sdpMLineIndex;
+    }
+    this.sendMessage(message);
+  }
+
+  sendGetVideoMessage(targetId: string, sdpOffer): void {
+    const msg = {
+      type: 'get-video',
+      userId: this.userId,
+      targetId: targetId,
+      sdpOffer: sdpOffer
+    };
+    this.sendMessage(msg);
   }
 
   sendMessage(message): void {
@@ -193,4 +192,7 @@ export class StreamService {
     this.ws.next(message);
   }
 
+  initHtmlView(): void {
+    this.rootElement.style.display = 'flex';
+  }
 }

@@ -1,18 +1,14 @@
-import {WebSocketSubject} from 'rxjs/internal-compatibility';
 import {WebRtcPeer} from 'kurento-utils';
 
 
 export class Participant {
 
-  container: HTMLElement;
-  video: HTMLVideoElement;
+  containerElement: HTMLElement;
+  videoElement: HTMLVideoElement;
   rtcPeer: WebRtcPeer;
 
-
   constructor(
-    private readonly userId: string,
-    private readonly ws: WebSocketSubject<any>,
-    private readonly localUserId: string,
+    readonly userId: string,
   ) {
     this.createHtmlView();
   }
@@ -21,8 +17,6 @@ export class Participant {
     const container = document.createElement('div');
 
     container.id = String(this.userId);
-    // container.style.display = 'flex';
-    // container.style.flexDirection = 'column';
     container.style.width = '300px';
     container.style.height = '200px';
     container.style.position = 'relative';
@@ -52,51 +46,13 @@ export class Participant {
     container.appendChild(span);
     container.appendChild(video);
 
-    this.container = container;
-    this.video = video;
+    this.containerElement = container;
+    this.videoElement = video;
   }
 
-  offerToReceiveVideo(error, offerSdp): void {
-    console.log('offerToReceiveVideo');
-
-    if (error) {
-      return console.error('sdp offer error');
-    }
-    console.log('Invoking SDP offer callback function');
-    const msg = {
-      type: 'get-video',
-      userId: this.localUserId,
-      targetId: this.userId,
-      sdpOffer: offerSdp
-    };
-    this.sendMessage(msg);
-  }
-
-  onIceCandidate(candidate): void {
-    console.log('onIceCandidate');
-    const message = {
-      type: 'ice-candidate',
-      userId: this.localUserId,
-      targetId: this.userId
-    };
-
-    if (candidate.candidate) {
-      message['candidate'] = candidate.candidate;
-      message['sdpMid'] = candidate.sdpMid;
-      message['sdpMLineIndex'] = candidate.sdpMLineIndex;
-    }
-    this.sendMessage(message);
-  }
-
-
-  sendMessage(message): void {
-    console.log('sendMessage');
-    console.log('Sending message: ' + JSON.stringify(message));
-    this.ws.next(message);
-  }
 
   dispose(): void {
-    this.container.remove();
+    this.containerElement.remove();
     this.rtcPeer.dispose();
   }
 
