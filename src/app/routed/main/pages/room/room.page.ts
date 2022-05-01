@@ -15,7 +15,7 @@ export class RoomPage implements AfterViewInit {
   private readonly roomId = "1";
 
   constructor(
-    private readonly kurentoService: StreamService
+    private readonly streamService: StreamService
   ) {
 
   }
@@ -27,6 +27,6 @@ export class RoomPage implements AfterViewInit {
 
   async onConnectButtonClick() {
     const userId = this.userIdForm.value;
-    await this.kurentoService.start(userId, this.roomId, this.rootElement.nativeElement);
+    await this.streamService.start(userId, this.roomId, this.rootElement.nativeElement);
   }
 }

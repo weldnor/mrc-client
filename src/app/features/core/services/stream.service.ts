@@ -1,45 +1,52 @@
 import {Injectable} from '@angular/core';
 import {WebSocketSubject} from 'rxjs/internal-compatibility';
+import * as kurentoUtils from 'kurento-utils';
 import {Participant} from '../participant';
 import {environment} from '../../../../environments/environment';
-import {getIceServers} from "../util/webrtc.utils"
-
+import {MediaDevicesService} from "./media-devices.service";
 
 @Injectable({
   providedIn: 'root'
 })
 export class StreamService {
   private userId: string;
+
   private roomId: string;
   private rootElement: HTMLElement;
 
-  private participants = new Map<string, Participant>();
-
   private ws: WebSocketSubject<any>;
 
+  private participants = new Map<string, Participant>();
+  private zoomedParticipant: Participant | undefined;
 
-  constructor() {
+
+  constructor(
+    private readonly mediaDevicesService: MediaDevicesService,
+  ) {
   }
 
-  async start(userId: string, roomId: string, rootElement: HTMLElement) {
-    this.userId = userId;
-    this.roomId = roomId;
-    this.rootElement = rootElement;
+  start(userId: string, roomId: string, rootElement: HTMLElement): void {
+    console.log('start');
 
     // connect to ws
     const protocol = environment.production ? 'wss' : 'ws';
     const wsUrl = `${protocol}://${environment.apiHost}/ws`;
 
+    console.log(wsUrl);
+
     this.ws = new WebSocketSubject(wsUrl);
 
-    // init ui
+    this.userId = userId;
+    this.roomId = roomId;
+    this.rootElement = rootElement;
+
     this.initHtmlView();
 
     this.ws.subscribe(value => {
       this.handleMessage(value);
     });
 
-    this.sendJoinMessage();
+    this.joinRoom();
   }
 
   dispose(): void {
@@ -51,125 +58,139 @@ export class StreamService {
   }
 
   handleMessage(message: any): void {
-    console.log(message);
+    console.log('handleMessage');
 
     switch (message.type) {
       case 'participants':
-        this.onParticipantsMessage(message.participantIds);
+        this.onExistingParticipants(message.participantIds);
         break;
       case 'sdp-answer':
-        this.onSdpAnswerMessage(message.userId, message.sdpAnswer);
+        this.onReceiveVideoAnswer(message.userId, message.sdpAnswer);
         break;
       case 'ice-candidate':
-        this.onIceCandidateMessage(message.userId, message.candidate);
+        this.onIceCandidate(message.userId, message.candidate);
         break;
       default:
         console.error('Unrecognized message', message);
     }
   }
 
-  private async onIceCandidateMessage(userId: string, candidate) {
-    console.log('onIceCandidateMessage');
-    const participant = this.participants[userId];
-    await participant.connection.addIceCandidate(new RTCIceCandidate(candidate));
-  }
-
-  async onSdpAnswerMessage(userId, sdpAnswer) {
-    console.log('onSdpAnswerMessage')
-    const description: RTCSessionDescriptionInit = {'sdp': sdpAnswer, 'type': 'answer'};
-    const participant = this.participants[userId];
-    await participant.connection.setRemoteDescription(description);
-  }
-
-  private async onParticipantsMessage(participantIds: string[]) {
-    console.log('onParticipantsMessage')
-
-    // 1. add local participant
-    const localParticipant = this.createParticipant(this.userId);
-
-    const mediaStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-    mediaStream.getTracks().forEach(track => localParticipant.connection.addTrack(track, mediaStream));
-
-    this.rootElement.appendChild(localParticipant.videoElement);
-    this.participants[this.userId] = localParticipant;
-
-    // 2.
-    for (let participantId of participantIds) {
-      console.log(participantId);
-      let participant;
-      if (participantId != this.userId) {
-        participant = this.createParticipant(participantId);
-        this.rootElement.appendChild(participant.videoElement);
-        this.participants[participantId] = participant;
-      } else {
-        participant = localParticipant;
-      }
-      let offer = await participant.connection.createOffer();
-      console.log(offer);
-      await participant.connection.setLocalDescription(offer);
-      await this.sendGetVideoMessage(participantId, offer.sdp);
-    }
-
-  }
-
-  sendJoinMessage() {
-    console.log(`join to room with id: ${this.roomId}`);
-
+  joinRoom(): void {
+    console.log('register');
     const message = {
       type: 'join',
       userId: this.userId,
       roomId: this.roomId,
     };
+    console.log(message);
     this.sendMessage(message);
   }
 
+  onNewParticipantArrived(request): void {
+    console.log('onNewParticipantArrived');
+    this.receiveVideoFrom(request.userId);
+  }
 
-  private createParticipant(participantId: string) {
-    // create ui element
-    let videoElement: HTMLVideoElement = document.createElement('video');
-    videoElement.height = 100;
-    videoElement.width = 200;
-    videoElement.autoplay = true;
-    videoElement.controls = false;
-
-    const connection = new RTCPeerConnection({iceServers: getIceServers()});
-
-    
-    // add event listeners
-    connection.onicecandidate = e => {
-      const message = {
-        type: 'ice-candidate',
-        userId: this.userId,
-        targetId: participantId,
-      };
-
-      if (e.candidate) {
-        message['candidate'] = e.candidate.candidate;
-        message['sdpMid'] = e.candidate.sdpMid;
-        message['sdpMLineIndex'] = e.candidate.sdpMLineIndex;
+  onReceiveVideoAnswer(userId, sdpAnswer: any): void {
+    console.log('onReceiveVideoAnswer');
+    console.log(this.participants);
+    this.participants[userId].rtcPeer.processAnswer(sdpAnswer, error => {
+      if (error) {
+        return console.error(error);
       }
-      this.sendMessage(message);
+    });
+  }
+
+  onExistingParticipants(participantIds): void {
+    console.log('onExistingParticipants');
+    console.log(participantIds);
+
+    // ограничения на исходящее видео
+    const constraints = {video: true, audio: true}
+    console.log(constraints);
+
+    console.log(this.userId + ' registered in room ' + this.roomId);
+
+    const participant = new Participant(this.userId, this.ws, this.userId);
+    this.participants[this.userId] = participant;
+
+    this.rootElement.appendChild(participant.container);
+
+    console.log(participant.video)
+
+    const options = {
+      localVideo: participant.video,
+      mediaConstraints: constraints,
+      onicecandidate: participant.onIceCandidate.bind(participant)
     };
 
-    connection.ontrack = async ev => videoElement.srcObject = ev.streams[0]
+    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options,
+      function (error): void {
+        if (error) {
+          return console.error(error);
+        }
+        this.generateOffer(participant.offerToReceiveVideo.bind(participant));
+      });
 
-    return new Participant(participantId, connection, videoElement);
+    // подключаем других участников
+    for (const participantId of participantIds) {
+      this.receiveVideoFrom(participantId);
+    }
   }
 
 
-  private async sendGetVideoMessage(targetId, sdpOffer) {
-    const message = {
-      type: 'get-video',
-      userId: this.userId,
-      targetId: targetId,
-      sdpOffer: sdpOffer,
+  receiveVideoFrom(userId): void {
+    console.log('receiveVideo');
+    const participant = new Participant(userId, this.ws, this.userId);
+    this.participants[userId] = participant;
+
+    this.rootElement.appendChild(participant.container);
+
+    const options = {
+      remoteVideo: participant.video,
+      onicecandidate: participant.onIceCandidate.bind(participant)
     };
-    this.sendMessage(message);
+
+    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options,
+      function (error): void {
+        if (error) {
+          return console.error(error);
+        }
+        this.generateOffer(participant.offerToReceiveVideo.bind(participant));
+      });
+
   }
 
-  sendMessage(message: any): void {
+  onParticipantLeft(request): void {
+    const userId = request.userId;
+    console.log('onParticipantLeft');
+    console.log('Participant ' + userId + ' left');
+    this.deleteParticipant(userId);
+  }
+
+  deleteParticipant(userId: number): void {
+    const participant = this.participants[userId];
+    participant.dispose();
+    delete this.participants[userId];
+  }
+
+  onIceCandidate(userId: any, candidate): void {
+    this.participants[userId].rtcPeer.addIceCandidate(candidate, error => {
+      if (error) {
+        console.error('Error adding candidate: ' + error);
+        return;
+      }
+    });
+  }
+
+  onPong(): void {
+    console.debug('pong!');
+  }
+
+  sendMessage(message): void {
     console.log('sendMessage');
-    console.log(`Sending message with type: ${message.type}`);
+    console.log(`Sending message with id: ${message.id}`);
     this.ws.next(message);
   }
+
 }
