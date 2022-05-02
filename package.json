@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "main": "main.js",
   "scripts": {
-    "electron": "ng build --base-href ./ && electron .",
+    "electron": "ng build --configuration production --base-href ./ && electron .",
     "ng": "ng",
     "start": "ng serve",
     "start-prod": "ng serve --configuration production",
