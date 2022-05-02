@@ -1,9 +1,8 @@
 import {Injectable} from '@angular/core';
 import {WebSocketSubject} from 'rxjs/internal-compatibility';
-import * as kurentoUtils from 'kurento-utils';
 import {Participant} from '../participant';
 import {environment} from '../../../../environments/environment';
-import {getMediaConstraints} from "../util/webrtc.utils";
+import {getIceServers} from "../util/webrtc.utils";
 
 @Injectable({
   providedIn: 'root'
@@ -71,17 +70,15 @@ export class StreamService {
   }
 
 
-  private onSdpAnswerMessage(userId, sdpAnswer: any): void {
+  private async onSdpAnswerMessage(userId, sdpAnswer: any) {
     console.log('onReceiveVideoAnswer');
-    console.log(this.participants);
-    this.participants[userId].rtcPeer.processAnswer(sdpAnswer, error => {
-      if (error) {
-        return console.error(error);
-      }
-    });
+
+    const participant: Participant = this.participants[userId];
+    const description: RTCSessionDescriptionInit = {sdp: sdpAnswer, type: "answer"};
+    await participant.connection.setRemoteDescription(description);
   }
 
-  private onParticipantsMessage(participantIds): void {
+  private async onParticipantsMessage(participantIds) {
     console.log('onExistingParticipants');
     console.log(participantIds);
 
@@ -91,13 +88,13 @@ export class StreamService {
 
     console.log(this.userId + ' registered in room ' + this.roomId);
 
-    const localParticipant = this.createLocalParticipant();
+    const localParticipant = await this.createLocalParticipant();
     this.participants[this.userId] = localParticipant;
     this.rootElement.appendChild(localParticipant.containerElement);
 
     // подключаем других участников
     for (const participantId of participantIds) {
-      const participant = this.createRemoteParticipant(participantId);
+      const participant = await this.createRemoteParticipant(participantId);
 
       this.participants[participantId] = participant;
       this.rootElement.appendChild(participant.containerElement);
@@ -105,48 +102,41 @@ export class StreamService {
   }
 
   private onIceCandidateMessage(userId: any, candidate): void {
-    this.participants[userId].rtcPeer.addIceCandidate(candidate, error => {
-      if (error) {
-        console.error('Error adding candidate: ' + error);
-        return;
-      }
-    });
+    this.participants[userId].connection.addIceCandidate(candidate);
   }
 
-  private createLocalParticipant(): Participant {
+  private async createLocalParticipant() {
     const participant = new Participant(this.userId);
 
-    const options = {
-      localVideo: participant.videoElement,
-      mediaConstraints: getMediaConstraints(),
-      onicecandidate: (candidate) => this.sendIceCandidateMessage(this.userId, candidate),
-    };
+    participant.connection = new RTCPeerConnection({iceServers: getIceServers()});
 
-    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, error => {
-        if (error) {
-          return console.error(error);
-        }
-        participant.rtcPeer.generateOffer((error, sdp) => this.sendGetVideoMessage(this.userId, sdp));
-      }
-    );
+    const mediaStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true})
+    mediaStream.getTracks().forEach(value => participant.connection.addTrack(value, mediaStream));
+
+    participant.connection.onicecandidate = ev => this.sendIceCandidateMessage(this.userId, ev.candidate);
+    // participant.connection.ontrack = ev => participant.videoElement.srcObject = ev.streams[0];
+
+    participant.videoElement.srcObject = mediaStream;
+
+    const offer = await participant.connection.createOffer();
+    await participant.connection.setLocalDescription(offer);
+    this.sendGetVideoMessage(this.userId, offer)
 
     return participant;
   }
 
-  private createRemoteParticipant(userId: string) {
+  private async createRemoteParticipant(userId: string) {
     const participant = new Participant(userId);
 
-    const options = {
-      remoteVideo: participant.videoElement,
-      onicecandidate: (candidate) => this.sendIceCandidateMessage(userId, candidate),
-    };
+    participant.connection = new RTCPeerConnection({iceServers: getIceServers()});
 
-    participant.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options, error => {
-      if (error) {
-        return console.error(error);
-      }
-      participant.rtcPeer.generateOffer((error, sdp) => this.sendGetVideoMessage(userId, sdp));
-    });
+    participant.connection.onicecandidate = ev => this.sendIceCandidateMessage(userId, ev.candidate);
+    participant.connection.ontrack = ev => participant.videoElement.srcObject = ev.streams[0];
+
+    const offer = await participant.connection.createOffer({offerToReceiveAudio: true, offerToReceiveVideo: true});
+    await participant.connection.setLocalDescription(offer);
+
+    this.sendGetVideoMessage(userId, offer)
 
     return participant;
   }
@@ -162,6 +152,10 @@ export class StreamService {
   }
 
   private sendIceCandidateMessage(targetId: string, candidate) {
+    if (!candidate) {
+      return;
+    }
+
     const message = {
       type: 'ice-candidate',
       userId: this.userId,
@@ -181,14 +175,12 @@ export class StreamService {
       type: 'get-video',
       userId: this.userId,
       targetId: targetId,
-      sdpOffer: sdpOffer
+      sdpOffer: sdpOffer.sdp
     };
     this.sendMessage(msg);
   }
 
   sendMessage(message): void {
-    console.log('sendMessage');
-    console.log(`Sending message with id: ${message.id}`);
     this.ws.next(message);
   }
 

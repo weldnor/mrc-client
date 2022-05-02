@@ -1,11 +1,8 @@
-import {WebRtcPeer} from 'kurento-utils';
-
-
 export class Participant {
 
   containerElement: HTMLElement;
   videoElement: HTMLVideoElement;
-  rtcPeer: WebRtcPeer;
+  connection: RTCPeerConnection;
 
   constructor(
     readonly userId: string,
@@ -52,8 +49,9 @@ export class Participant {
 
 
   dispose(): void {
+    // todo
     this.containerElement.remove();
-    this.rtcPeer.dispose();
+    // this.connection.dispose();
   }
 
 }
