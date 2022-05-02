@@ -159,6 +159,7 @@ export class StreamService {
     const message = {
       type: 'ice-candidate',
       userId: this.userId,
+      roomId: this.roomId,
       targetId: targetId,
     };
 
@@ -174,6 +175,7 @@ export class StreamService {
     const msg = {
       type: 'get-video',
       userId: this.userId,
+      roomId: this.roomId,
       targetId: targetId,
       sdpOffer: sdpOffer.sdp
     };
