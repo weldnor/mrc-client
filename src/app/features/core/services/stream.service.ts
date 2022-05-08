@@ -51,24 +51,27 @@ export class StreamService {
     this.sendJoinMessage();
   }
 
-  private handleMessage(message: any): void {
+  private async handleMessage(message: any) {
     console.log('handleMessage');
 
     switch (message.type) {
       case 'participants':
-        this.onParticipantsMessage(message.participantIds);
+        await this.onParticipantsMessage(message.participantIds);
         break;
       case 'participants/left':
         this.onParticipantsLeftMessage(message.userId);
         break;
       case 'participants/new':
-        this.onParticipantsNewMessage(message.userId);
+        await this.onParticipantsNewMessage(message.userId);
         break;
       case 'sdp-answer':
-        this.onSdpAnswerMessage(message.userId, message.sdpAnswer);
+        await this.onSdpAnswerMessage(message.userId, message.sdpAnswer);
         break;
       case 'ice-candidate':
         this.onIceCandidateMessage(message.userId, message.candidate);
+        break;
+      case 'control':
+        this.onControlMessage(message.userId, message.command);
         break;
       default:
         throw new Error(`Unrecognized message: ${message}`);
@@ -124,6 +127,12 @@ export class StreamService {
 
     this.participants[userId] = participant;
     this.rootElement.appendChild(participant.containerElement);
+  }
+
+  private onControlMessage(userId: string, command: any) {
+    if (window.electronAPI) {
+      window.electronAPI.processControlCommand(command);
+    }
   }
 
   private async createLocalParticipant() {

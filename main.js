@@ -1,11 +1,18 @@
-const { app, BrowserWindow } = require("electron");
+const {app, BrowserWindow, ipcMain} = require("electron");
 const path = require("path");
 const url = require("url");
+const robot = require("robotjs");
 
 let browserWindow;
 
 function createBrowserWindow() {
-  browserWindow = new BrowserWindow({ width: 1200, height: 800 });
+  browserWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
 
   browserWindow.loadURL(
     url.format({
@@ -20,7 +27,15 @@ function createBrowserWindow() {
   });
 }
 
-app.on("ready", createBrowserWindow);
+function handleCommandMessage(event, message) {
+  console.log(message);
+  robot.moveMouse(message.x, message.y);
+}
+
+app.on("ready", () => {
+  ipcMain.on('command', handleCommandMessage);
+  createBrowserWindow();
+});
 
 app.on("activate", () => {
   if (browserWindow === null) {
