@@ -58,6 +58,12 @@ export class StreamService {
       case 'participants':
         this.onParticipantsMessage(message.participantIds);
         break;
+      case 'participants/left':
+        this.onParticipantsLeftMessage(message.userId);
+        break;
+      case 'participants/new':
+        this.onParticipantsNewMessage(message.userId);
+        break;
       case 'sdp-answer':
         this.onSdpAnswerMessage(message.userId, message.sdpAnswer);
         break;
@@ -103,6 +109,21 @@ export class StreamService {
 
   private onIceCandidateMessage(userId: any, candidate): void {
     this.participants[userId].connection.addIceCandidate(candidate);
+  }
+
+  private onParticipantsLeftMessage(userId: string) {
+    const participant: Participant = this.participants[userId];
+    participant.connection.close();
+    participant.containerElement.parentElement.removeChild(participant.containerElement);
+    participant.videoElement.parentElement.removeChild(participant.videoElement);
+    this.participants.delete(userId);
+  }
+
+  private async onParticipantsNewMessage(userId: string) {
+    const participant = await this.createRemoteParticipant(userId);
+
+    this.participants[userId] = participant;
+    this.rootElement.appendChild(participant.containerElement);
   }
 
   private async createLocalParticipant() {
@@ -189,4 +210,6 @@ export class StreamService {
   initHtmlView(): void {
     this.rootElement.style.display = 'flex';
   }
+
+
 }
