@@ -31,8 +31,8 @@ export class LoginPage implements OnInit {
     const password = this.loginForm.value.password;
 
     this.authService.login({email, password}).subscribe(
-      (user) => {
-        this.route.navigate([`/users/${user.id}`]);
+      () => {
+        this.route.navigateByUrl('/home');
       },
       () => {
         this.errorMessage = 'oops!'; // FIXME
