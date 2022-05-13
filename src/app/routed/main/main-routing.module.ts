@@ -9,7 +9,7 @@ import {SettingsPage} from './pages/settings/settings.page';
 import {JoinPage} from "./pages/join/join.page";
 
 const routes: Routes = [
-  {path: '', redirectTo: 'home', pathMatch: 'prefix'},
+  {path: '', redirectTo: '/home', pathMatch: 'prefix'},
   {path: 'home', component: HomePage},
   {path: 'login', component: LoginPage},
   {path: 'register', component: RegisterPage},
