@@ -168,6 +168,49 @@ export class StreamService {
     return participant;
   }
 
+  updateZoomState(participantId: string): void {
+    if (this.zoomedParticipantId) {
+      this.unzoom(participantId);
+      return;
+    }
+    this.zoom(participantId);
+  }
+
+  private zoom(participantId: string) {
+    console.log("zoom")
+
+    this.zoomedParticipantId = participantId;
+    this.sendZoomMessage(participantId, true);
+
+    for (let participant of this.participants.values()) {
+
+      if (participant.userId == participantId) {
+
+        participant.containerElement.style.width = "100%";
+        participant.containerElement.style.height = "auto";
+      } else {
+        participant.containerElement.hidden = true;
+      }
+    }
+
+
+  }
+
+  private unzoom(participantId: string) {
+    console.log("unzoom")
+
+    this.zoomedParticipantId = null;
+    this.sendZoomMessage(participantId, false);
+
+    for (let participant of this.participants.values()) {
+      if (participant.userId === participantId) {
+        participant.containerElement.style.width = '300px';
+        participant.containerElement.style.height = '200px';
+      } else {
+        participant.containerElement.hidden = false;
+      }
+    }
+  }
 
   private sendJoinMessage() {
     const message = {
@@ -209,54 +252,22 @@ export class StreamService {
     this.sendMessage(msg);
   }
 
+  sendZoomMessage(targetId: string, state: boolean) {
+    const msg = {
+      type: 'zoom',
+      userId: this.userId,
+      roomId: this.roomId,
+      targetId: targetId,
+      enabled: state,
+    };
+    this.sendMessage(msg);
+  }
+
   sendMessage(message): void {
     this.ws.next(message);
   }
 
   initHtmlView(): void {
     this.rootElement.style.display = 'flex';
-  }
-
-  updateZoomState(participantId: string): void {
-    if (this.zoomedParticipantId) {
-      this.unzoom(participantId);
-      return;
-    }
-    this.zoom(participantId);
-  }
-
-  private zoom(participantId: string) {
-    console.log("zoom")
-
-    this.zoomedParticipantId = participantId;
-
-    console.log(participantId)
-    console.log(this.participants)
-
-    for (let participant of this.participants.values()) {
-      console.log(participant)
-      if (participant.userId == participantId) {
-        console.log("hi")
-        participant.containerElement.style.width = "100%";
-        participant.containerElement.style.height = "auto";
-      } else {
-        participant.containerElement.hidden = true;
-      }
-    }
-  }
-
-  private unzoom(participantId: string) {
-    console.log("unzoom")
-
-    this.zoomedParticipantId = null;
-
-    for (let participant of this.participants.values()) {
-      if (participant.userId === participantId) {
-        participant.containerElement.style.width = '300px';
-        participant.containerElement.style.height = '200px';
-      } else {
-        participant.containerElement.hidden = false;
-      }
-    }
   }
 }
