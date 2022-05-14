@@ -53,8 +53,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "60kb",
-                  "maximumError": "100kb"
+                  "maximumWarning": "60mb",
+                  "maximumError": "100mb"
                 }
               ]
             }
