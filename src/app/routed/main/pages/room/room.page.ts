@@ -1,6 +1,7 @@
 import {AfterViewInit, Component, ElementRef, ViewChild} from '@angular/core';
-import {FormControl} from "@angular/forms";
 import {StreamService} from "../../../../features/core/services/stream.service";
+import {AuthService} from "../../../../features/core/services/auth.service";
+import {ActivatedRoute, Router} from "@angular/router";
 
 @Component({
   selector: 'app-room',
@@ -10,23 +11,44 @@ import {StreamService} from "../../../../features/core/services/stream.service";
 export class RoomPage implements AfterViewInit {
 
   @ViewChild('root') rootElement!: ElementRef;
-  userIdForm = new FormControl('');
 
-  private readonly roomId = "1";
+  private roomId?: string;
+  private userId?: string;
 
   constructor(
-    private readonly streamService: StreamService
+    private readonly streamService: StreamService,
+    private readonly authService: AuthService,
+    private readonly router: Router,
+    private readonly route: ActivatedRoute,
   ) {
 
   }
 
+  async ngAfterViewInit() {
+    this.userId = this.authService.getUserId();
+    this.roomId = this.route.snapshot.paramMap.get('bank');
 
-  ngAfterViewInit(): void {
-
+    await this.streamService.start(this.userId, this.roomId, this.rootElement.nativeElement);
   }
 
-  async onConnectButtonClick() {
-    const userId = this.userIdForm.value;
-    await this.streamService.start(userId, this.roomId, this.rootElement.nativeElement);
+  onParticipantButtonClick() {
+    // todo
+  }
+
+  onCameraButtonClick() {
+    // todo
+  }
+
+  onMicrophoneButtonClick() {
+    // todo
+  }
+
+  onShareScreenButtonClick() {
+    // todo
+  }
+
+  async onLeaveButtonClick() {
+    this.streamService.stop();
+    await this.router.navigateByUrl("/home");
   }
 }
