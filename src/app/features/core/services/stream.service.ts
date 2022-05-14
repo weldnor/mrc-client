@@ -38,7 +38,7 @@ export class StreamService {
     this.initHtmlView();
 
     this.ws.subscribe(value => {
-      this.handleMessage(value);
+      void this.handleMessage(value);
     });
 
     this.join();
@@ -53,24 +53,24 @@ export class StreamService {
     this.sendJoinMessage();
   }
 
-  private handleMessage(message: any): void {
+  private async handleMessage(message: any) {
     console.log('handleMessage');
 
     switch (message.type) {
       case 'participants':
-        this.onParticipantsMessage(message.participantIds);
+        await this.onParticipantsMessage(message.participantIds);
         break;
       case 'participants/left':
         this.onParticipantsLeftMessage(message.userId);
         break;
       case 'participants/new':
-        this.onParticipantsNewMessage(message.userId);
+        await this.onParticipantsNewMessage(message.userId);
         break;
       case 'sdp-answer':
-        this.onSdpAnswerMessage(message.userId, message.sdpAnswer);
+        await this.onSdpAnswerMessage(message.userId, message.sdpAnswer);
         break;
       case 'ice-candidate':
-        this.onIceCandidateMessage(message.userId, message.candidate);
+        await this.onIceCandidateMessage(message.userId, message.candidate);
         break;
       default:
         throw new Error(`Unrecognized message: ${message}`);
@@ -109,8 +109,8 @@ export class StreamService {
     }
   }
 
-  private onIceCandidateMessage(userId: any, candidate): void {
-    this.participants.get(userId).connection.addIceCandidate(candidate);
+  private async onIceCandidateMessage(userId: any, candidate) {
+    await this.participants.get(userId).connection.addIceCandidate(candidate);
   }
 
   private onParticipantsLeftMessage(userId: string) {
