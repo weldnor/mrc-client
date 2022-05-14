@@ -26,7 +26,7 @@ export class RoomPage implements AfterViewInit {
 
   async ngAfterViewInit() {
     this.userId = this.authService.getUserId();
-    this.roomId = this.route.snapshot.paramMap.get('bank');
+    this.roomId = this.route.snapshot.paramMap.get('id');
 
     await this.streamService.start(this.userId, this.roomId, this.rootElement.nativeElement);
   }
