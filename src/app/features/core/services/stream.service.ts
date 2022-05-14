@@ -9,13 +9,15 @@ import {getIceServers} from "../util/webrtc.utils";
 })
 export class StreamService {
   private userId: string;
-
   private roomId: string;
   private rootElement: HTMLElement;
 
   private ws: WebSocketSubject<any>;
 
   private participants = new Map<string, Participant>();
+
+  private zoomedParticipantId?
+
 
   constructor() {
   }
@@ -79,7 +81,7 @@ export class StreamService {
   private async onSdpAnswerMessage(userId, sdpAnswer: any) {
     console.log('onReceiveVideoAnswer');
 
-    const participant: Participant = this.participants[userId];
+    const participant: Participant = this.participants.get(userId);
     const description: RTCSessionDescriptionInit = {sdp: sdpAnswer, type: "answer"};
     await participant.connection.setRemoteDescription(description);
   }
@@ -95,24 +97,24 @@ export class StreamService {
     console.log(this.userId + ' registered in room ' + this.roomId);
 
     const localParticipant = await this.createLocalParticipant();
-    this.participants[this.userId] = localParticipant;
+    this.participants.set(this.userId, localParticipant);
     this.rootElement.appendChild(localParticipant.containerElement);
 
     // подключаем других участников
     for (const participantId of participantIds) {
       const participant = await this.createRemoteParticipant(participantId);
 
-      this.participants[participantId] = participant;
+      this.participants.set(participantId, participant);
       this.rootElement.appendChild(participant.containerElement);
     }
   }
 
   private onIceCandidateMessage(userId: any, candidate): void {
-    this.participants[userId].connection.addIceCandidate(candidate);
+    this.participants.get(userId).connection.addIceCandidate(candidate);
   }
 
   private onParticipantsLeftMessage(userId: string) {
-    const participant: Participant = this.participants[userId];
+    const participant: Participant = this.participants.get(userId);
     participant.connection.close();
     participant.containerElement.parentElement.removeChild(participant.containerElement);
     participant.videoElement.parentElement.removeChild(participant.videoElement);
@@ -122,7 +124,7 @@ export class StreamService {
   private async onParticipantsNewMessage(userId: string) {
     const participant = await this.createRemoteParticipant(userId);
 
-    this.participants[userId] = participant;
+    this.participants.set(userId, participant);
     this.rootElement.appendChild(participant.containerElement);
   }
 
@@ -148,6 +150,10 @@ export class StreamService {
 
   private async createRemoteParticipant(userId: string) {
     const participant = new Participant(userId);
+
+    participant.videoElement.onclick = () => {
+      this.updateZoomState(participant.userId);
+    }
 
     participant.connection = new RTCPeerConnection({iceServers: getIceServers()});
 
@@ -211,5 +217,46 @@ export class StreamService {
     this.rootElement.style.display = 'flex';
   }
 
+  updateZoomState(participantId: string): void {
+    if (this.zoomedParticipantId) {
+      this.unzoom(participantId);
+      return;
+    }
+    this.zoom(participantId);
+  }
 
+  private zoom(participantId: string) {
+    console.log("zoom")
+
+    this.zoomedParticipantId = participantId;
+
+    console.log(participantId)
+    console.log(this.participants)
+
+    for (let participant of this.participants.values()) {
+      console.log(participant)
+      if (participant.userId == participantId) {
+        console.log("hi")
+        participant.containerElement.style.width = "100%";
+        participant.containerElement.style.height = "auto";
+      } else {
+        participant.containerElement.hidden = true;
+      }
+    }
+  }
+
+  private unzoom(participantId: string) {
+    console.log("unzoom")
+
+    this.zoomedParticipantId = null;
+
+    for (let participant of this.participants.values()) {
+      if (participant.userId === participantId) {
+        participant.containerElement.style.width = '300px';
+        participant.containerElement.style.height = '200px';
+      } else {
+        participant.containerElement.hidden = false;
+      }
+    }
+  }
 }
