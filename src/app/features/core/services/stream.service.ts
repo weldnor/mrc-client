@@ -180,7 +180,7 @@ export class StreamService {
     console.log("zoom")
 
     this.zoomedParticipantId = participantId;
-    this.sendZoomMessage(participantId, true);
+    this.sendZoomMessage(participantId, false);
 
     for (let participant of this.participants.values()) {
 
@@ -200,7 +200,7 @@ export class StreamService {
     console.log("unzoom")
 
     this.zoomedParticipantId = null;
-    this.sendZoomMessage(participantId, false);
+    this.sendZoomMessage(participantId, true);
 
     for (let participant of this.participants.values()) {
       if (participant.userId === participantId) {
