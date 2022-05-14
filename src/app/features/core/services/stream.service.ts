@@ -18,6 +18,13 @@ export class StreamService {
 
   private zoomedParticipantId?
 
+  private localMediaStream?: MediaStream;
+  private displayMediaStream?: MediaStream;
+  private userMediaStream?: MediaStream;
+
+  private videoSender?: RTCRtpSender;
+  private audioSender?: RTCRtpSender;
+
 
   constructor() {
   }
@@ -133,13 +140,15 @@ export class StreamService {
 
     participant.connection = new RTCPeerConnection({iceServers: getIceServers()});
 
-    const mediaStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true})
-    mediaStream.getTracks().forEach(value => participant.connection.addTrack(value, mediaStream));
+    this.userMediaStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+    this.localMediaStream = new MediaStream(this.userMediaStream.getTracks());
+
+    this.audioSender = participant.connection.addTrack(this.userMediaStream.getAudioTracks()[0], this.userMediaStream);
+    this.videoSender = participant.connection.addTrack(this.userMediaStream.getVideoTracks()[0], this.userMediaStream);
 
     participant.connection.onicecandidate = ev => this.sendIceCandidateMessage(this.userId, ev.candidate);
-    // participant.connection.ontrack = ev => participant.videoElement.srcObject = ev.streams[0];
 
-    participant.videoElement.srcObject = mediaStream;
+    participant.videoElement.srcObject = this.localMediaStream;
 
     const offer = await participant.connection.createOffer();
     await participant.connection.setLocalDescription(offer);
@@ -269,5 +278,29 @@ export class StreamService {
 
   initHtmlView(): void {
     this.rootElement.style.display = 'flex';
+  }
+
+  async updateShareScreenState() {
+    let currentParticipant = this.participants.get(this.userId);
+    let screenShared = currentParticipant.isScreenShared;
+
+    if (!this.displayMediaStream) {
+      this.displayMediaStream = await navigator.mediaDevices.getDisplayMedia({video: true, audio: false});
+    }
+
+    if (screenShared) {
+      await this.videoSender.replaceTrack(this.userMediaStream.getVideoTracks()[0]);
+
+      this.localMediaStream.removeTrack(this.localMediaStream.getVideoTracks()[0]);
+      this.localMediaStream.addTrack(this.userMediaStream.getVideoTracks()[0]);
+    } else {
+      await this.videoSender.replaceTrack(this.displayMediaStream.getVideoTracks()[0]);
+
+      this.localMediaStream.removeTrack(this.localMediaStream.getVideoTracks()[0]);
+      this.localMediaStream.addTrack(this.displayMediaStream.getVideoTracks()[0]);
+    }
+
+    currentParticipant.videoElement.srcObject = this.localMediaStream;
+    currentParticipant.isScreenShared = !screenShared;
   }
 }

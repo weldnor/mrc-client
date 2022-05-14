@@ -43,8 +43,8 @@ export class RoomPage implements AfterViewInit {
     // todo
   }
 
-  onShareScreenButtonClick() {
-    // todo
+  async onShareScreenButtonClick() {
+    await this.streamService.updateShareScreenState();
   }
 
   async onLeaveButtonClick() {

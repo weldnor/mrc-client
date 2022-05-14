@@ -3,6 +3,7 @@ export class Participant {
   containerElement: HTMLElement;
   videoElement: HTMLVideoElement;
   connection: RTCPeerConnection;
+  isScreenShared: boolean = false;
 
   constructor(
     readonly userId: string,
