@@ -15,8 +15,8 @@ export class Participant {
     const container = document.createElement('div');
 
     container.id = String(this.userId);
-    container.style.width = '300px';
-    container.style.height = '200px';
+    container.style.width = '320px';
+    container.style.height = '180px';
     container.style.position = 'relative';
 
 

@@ -213,8 +213,8 @@ export class StreamService {
 
     for (let participant of this.participants.values()) {
       if (participant.userId === participantId) {
-        participant.containerElement.style.width = '300px';
-        participant.containerElement.style.height = '200px';
+        participant.containerElement.style.width = '320px';
+        participant.containerElement.style.height = '180px';
       } else {
         participant.containerElement.hidden = false;
       }
