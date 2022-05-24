@@ -4,6 +4,7 @@ import {User} from '../../../core/models/user.model';
 import {switchMap} from "rxjs/operators";
 import {UserService} from "../../../core/services/user.service";
 import {of} from "rxjs";
+import {Router} from "@angular/router";
 
 @Component({
   selector: 'app-header',
@@ -17,6 +18,7 @@ export class HeaderComponent implements OnInit {
   constructor(
     private readonly authService: AuthService,
     private readonly userService: UserService,
+    private readonly router: Router,
   ) {
   }
 
@@ -31,7 +33,8 @@ export class HeaderComponent implements OnInit {
     })
   }
 
-  onLogoutButtonClick(): void {
+  async onLogoutButtonClick() {
     this.authService.logout();
+    await this.router.navigateByUrl('/login');
   }
 }

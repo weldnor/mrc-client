@@ -1,13 +1,13 @@
-<p>home works!</p>
+<app-header></app-header>
 
-<h2>users</h2>
+<h2>Rooms</h2>
 
-<div *ngFor="let user of users">
-  <div>{{user.name}}</div>
+<div class="d-flex flex-row">
+
+  <div *ngFor="let room of rooms" [routerLink]="'/join/' + room.id" class="room-card">
+    <div class="room-card__name">{{room.name}}</div>
+  </div>
+
 </div>
 
-<h2>rooms</h2>
 
-<div *ngFor="let room of rooms">
-  <a [routerLink]="'/rooms/' + room.id">{{room.id}}</a>
-</div>

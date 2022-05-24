@@ -27,20 +27,18 @@ export class RegisterPage implements OnInit {
   ngOnInit(): void {
   }
 
-  onRegisterButtonClick(): void {
+  async onRegisterButtonClick() {
     const name = this.registerForm.value.username;
     const email = this.registerForm.value.email;
     const password = this.registerForm.value.password;
 
     console.log({name, email, password});
 
-    this.authService.register({name, email, password}).subscribe(
-      (user) => {
-        this.route.navigate([`/users/${user.id}`]);
-      },
-      () => {
-        this.errorMessage = 'oops!'; // FIXME
-      }
-    );
+    try {
+      await this.authService.register({name, email, password}).toPromise();
+      await this.route.navigateByUrl(`/home`);
+    } catch (e) {
+      this.errorMessage = 'oops!';
+    }
   }
 }

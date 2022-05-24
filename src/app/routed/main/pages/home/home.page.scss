@@ -1,0 +1,17 @@
+@use '@angular/material' as mat;
+@use 'src/custom-theme' as theme;
+
+.room-card {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: mat.get-color-from-palette(theme.$mrc-client-primary, 100);
+  border: 1px solid black;
+  width: 100px;
+  height: 80px;
+  margin: 10px;
+}
+
+.room-card__name {
+
+}

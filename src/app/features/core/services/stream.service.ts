@@ -9,13 +9,22 @@ import {getIceServers} from "../util/webrtc.utils";
 })
 export class StreamService {
   private userId: string;
-
   private roomId: string;
   private rootElement: HTMLElement;
 
   private ws: WebSocketSubject<any>;
 
   private participants = new Map<string, Participant>();
+
+  private zoomedParticipantId?
+
+  private localMediaStream?: MediaStream;
+  private displayMediaStream?: MediaStream;
+  private userMediaStream?: MediaStream;
+
+  private videoSender?: RTCRtpSender;
+  private audioSender?: RTCRtpSender;
+
 
   constructor() {
   }
@@ -36,7 +45,7 @@ export class StreamService {
     this.initHtmlView();
 
     this.ws.subscribe(value => {
-      this.handleMessage(value);
+      void this.handleMessage(value);
     });
 
     this.join();
@@ -68,7 +77,7 @@ export class StreamService {
         await this.onSdpAnswerMessage(message.userId, message.sdpAnswer);
         break;
       case 'ice-candidate':
-        this.onIceCandidateMessage(message.userId, message.candidate);
+        await this.onIceCandidateMessage(message.userId, message.candidate);
         break;
       case 'control':
         this.onControlMessage(message.userId, message.command);
@@ -82,7 +91,7 @@ export class StreamService {
   private async onSdpAnswerMessage(userId, sdpAnswer: any) {
     console.log('onReceiveVideoAnswer');
 
-    const participant: Participant = this.participants[userId];
+    const participant: Participant = this.participants.get(userId);
     const description: RTCSessionDescriptionInit = {sdp: sdpAnswer, type: "answer"};
     await participant.connection.setRemoteDescription(description);
   }
@@ -98,24 +107,24 @@ export class StreamService {
     console.log(this.userId + ' registered in room ' + this.roomId);
 
     const localParticipant = await this.createLocalParticipant();
-    this.participants[this.userId] = localParticipant;
+    this.participants.set(this.userId, localParticipant);
     this.rootElement.appendChild(localParticipant.containerElement);
 
     // подключаем других участников
     for (const participantId of participantIds) {
       const participant = await this.createRemoteParticipant(participantId);
 
-      this.participants[participantId] = participant;
+      this.participants.set(participantId, participant);
       this.rootElement.appendChild(participant.containerElement);
     }
   }
 
-  private onIceCandidateMessage(userId: any, candidate): void {
-    this.participants[userId].connection.addIceCandidate(candidate);
+  private async onIceCandidateMessage(userId: any, candidate) {
+    await this.participants.get(userId).connection.addIceCandidate(candidate);
   }
 
   private onParticipantsLeftMessage(userId: string) {
-    const participant: Participant = this.participants[userId];
+    const participant: Participant = this.participants.get(userId);
     participant.connection.close();
     participant.containerElement.parentElement.removeChild(participant.containerElement);
     participant.videoElement.parentElement.removeChild(participant.videoElement);
@@ -125,7 +134,7 @@ export class StreamService {
   private async onParticipantsNewMessage(userId: string) {
     const participant = await this.createRemoteParticipant(userId);
 
-    this.participants[userId] = participant;
+    this.participants.set(userId, participant);
     this.rootElement.appendChild(participant.containerElement);
   }
 
@@ -140,13 +149,15 @@ export class StreamService {
 
     participant.connection = new RTCPeerConnection({iceServers: getIceServers()});
 
-    const mediaStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true})
-    mediaStream.getTracks().forEach(value => participant.connection.addTrack(value, mediaStream));
+    this.userMediaStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+    this.localMediaStream = new MediaStream(this.userMediaStream.getTracks());
+
+    this.audioSender = participant.connection.addTrack(this.userMediaStream.getAudioTracks()[0], this.userMediaStream);
+    this.videoSender = participant.connection.addTrack(this.userMediaStream.getVideoTracks()[0], this.userMediaStream);
 
     participant.connection.onicecandidate = ev => this.sendIceCandidateMessage(this.userId, ev.candidate);
-    // participant.connection.ontrack = ev => participant.videoElement.srcObject = ev.streams[0];
 
-    participant.videoElement.srcObject = mediaStream;
+    participant.videoElement.srcObject = this.localMediaStream;
 
     const offer = await participant.connection.createOffer();
     await participant.connection.setLocalDescription(offer);
@@ -157,6 +168,10 @@ export class StreamService {
 
   private async createRemoteParticipant(userId: string) {
     const participant = new Participant(userId);
+
+    participant.videoElement.onclick = () => {
+      this.updateZoomState(participant.userId);
+    }
 
     participant.connection = new RTCPeerConnection({iceServers: getIceServers()});
 
@@ -171,6 +186,49 @@ export class StreamService {
     return participant;
   }
 
+  updateZoomState(participantId: string): void {
+    if (this.zoomedParticipantId) {
+      this.unzoom(participantId);
+      return;
+    }
+    this.zoom(participantId);
+  }
+
+  private zoom(participantId: string) {
+    console.log("zoom")
+
+    this.zoomedParticipantId = participantId;
+    this.sendZoomMessage(participantId, false);
+
+    for (let participant of this.participants.values()) {
+
+      if (participant.userId == participantId) {
+
+        participant.containerElement.style.width = "100%";
+        participant.containerElement.style.height = "auto";
+      } else {
+        participant.containerElement.hidden = true;
+      }
+    }
+
+
+  }
+
+  private unzoom(participantId: string) {
+    console.log("unzoom")
+
+    this.zoomedParticipantId = null;
+    this.sendZoomMessage(participantId, true);
+
+    for (let participant of this.participants.values()) {
+      if (participant.userId === participantId) {
+        participant.containerElement.style.width = '320px';
+        participant.containerElement.style.height = '180px';
+      } else {
+        participant.containerElement.hidden = false;
+      }
+    }
+  }
 
   private sendJoinMessage() {
     const message = {
@@ -212,6 +270,17 @@ export class StreamService {
     this.sendMessage(msg);
   }
 
+  sendZoomMessage(targetId: string, state: boolean) {
+    const msg = {
+      type: 'zoom',
+      userId: this.userId,
+      roomId: this.roomId,
+      targetId: targetId,
+      enabled: state,
+    };
+    this.sendMessage(msg);
+  }
+
   sendMessage(message): void {
     this.ws.next(message);
   }
@@ -220,5 +289,27 @@ export class StreamService {
     this.rootElement.style.display = 'flex';
   }
 
+  async updateShareScreenState() {
+    let currentParticipant = this.participants.get(this.userId);
+    let screenShared = currentParticipant.isScreenShared;
 
+    if (!this.displayMediaStream) {
+      this.displayMediaStream = await navigator.mediaDevices.getDisplayMedia({video: true, audio: false});
+    }
+
+    if (screenShared) {
+      await this.videoSender.replaceTrack(this.userMediaStream.getVideoTracks()[0]);
+
+      this.localMediaStream.removeTrack(this.localMediaStream.getVideoTracks()[0]);
+      this.localMediaStream.addTrack(this.userMediaStream.getVideoTracks()[0]);
+    } else {
+      await this.videoSender.replaceTrack(this.displayMediaStream.getVideoTracks()[0]);
+
+      this.localMediaStream.removeTrack(this.localMediaStream.getVideoTracks()[0]);
+      this.localMediaStream.addTrack(this.displayMediaStream.getVideoTracks()[0]);
+    }
+
+    currentParticipant.videoElement.srcObject = this.localMediaStream;
+    currentParticipant.isScreenShared = !screenShared;
+  }
 }

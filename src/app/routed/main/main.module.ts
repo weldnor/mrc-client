@@ -13,6 +13,9 @@ import {UserPage} from './pages/user/user.page';
 import {RoomPage} from './pages/room/room.page';
 import {SettingsPage} from './pages/settings/settings.page';
 import { JoinPage } from './pages/join/join.page';
+import {MatIconModule} from "@angular/material/icon";
+import {SharedModule} from "../../features/shared/shared.module";
+import {MatToolbarModule} from "@angular/material/toolbar";
 
 
 @NgModule({
@@ -34,6 +37,9 @@ import { JoinPage } from './pages/join/join.page';
     MatOptionModule,
     ReactiveFormsModule,
     FormsModule,
+    MatIconModule,
+    SharedModule,
+    MatToolbarModule,
   ]
 })
 export class MainModule {

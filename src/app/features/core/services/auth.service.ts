@@ -47,7 +47,7 @@ export class AuthService {
   logout(): void {
     this.userId = null;
     this.$authorized.next(false);
-    localStorage.removeItem('userId');
+    localStorage.removeItem('user_id');
   }
 
   getUserId(): string | undefined {
