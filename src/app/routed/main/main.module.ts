@@ -16,6 +16,7 @@ import { JoinPage } from './pages/join/join.page';
 import {MatIconModule} from "@angular/material/icon";
 import {SharedModule} from "../../features/shared/shared.module";
 import {MatToolbarModule} from "@angular/material/toolbar";
+import { AdminPage } from './pages/admin/admin.page';
 
 
 @NgModule({
@@ -27,6 +28,7 @@ import {MatToolbarModule} from "@angular/material/toolbar";
     RoomPage,
     SettingsPage,
     JoinPage,
+    AdminPage,
   ],
   imports: [
     CommonModule,
