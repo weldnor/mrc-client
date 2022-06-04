@@ -1,4 +1,4 @@
-const {app, BrowserWindow, ipcMain} = require("electron");
+const {app, BrowserWindow, ipcMain, desktopCapturer} = require("electron");
 const path = require("path");
 const url = require("url");
 const robot = require("robotjs");
@@ -10,6 +10,9 @@ function createBrowserWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
+      contextIsolation: false,
+      nodeIntegration: true,
+      nodeIntegrationInWorker: true,
       preload: path.join(__dirname, 'preload.js')
     }
   });
@@ -25,6 +28,11 @@ function createBrowserWindow() {
   browserWindow.on("closed", () => {
     browserWindow = null;
   });
+
+  desktopCapturer.getSources({ types: ['screen'] }).then(async sources => {
+    console.log(sources)
+    browserWindow.webContents.send('SET_SOURCE', sources[0].id);
+  })
 }
 
 function handleCommandMessage(event, message) {

@@ -30,7 +30,7 @@ export class StreamService {
   }
 
   public start(userId: string, roomId: string, rootElement: HTMLElement): void {
-    console.log('start');
+
 
     this.userId = userId;
     this.roomId = roomId;
@@ -148,6 +148,7 @@ export class StreamService {
     const participant = new Participant(this.userId);
 
     participant.connection = new RTCPeerConnection({iceServers: getIceServers()});
+    participant.isScreenShared = false;
 
     this.userMediaStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
     this.localMediaStream = new MediaStream(this.userMediaStream.getTracks());
@@ -294,17 +295,19 @@ export class StreamService {
     let screenShared = currentParticipant.isScreenShared;
 
     if (!this.displayMediaStream) {
-      this.displayMediaStream = await navigator.mediaDevices.getDisplayMedia({video: true, audio: false});
+      if (window.electronAPI != undefined) {
+        this.displayMediaStream = await window.electronAPI.getDisplayMedia();
+      } else {
+        this.displayMediaStream = await navigator.mediaDevices.getDisplayMedia({video: true, audio: false});
+      }
     }
 
     if (screenShared) {
       await this.videoSender.replaceTrack(this.userMediaStream.getVideoTracks()[0]);
-
       this.localMediaStream.removeTrack(this.localMediaStream.getVideoTracks()[0]);
       this.localMediaStream.addTrack(this.userMediaStream.getVideoTracks()[0]);
     } else {
       await this.videoSender.replaceTrack(this.displayMediaStream.getVideoTracks()[0]);
-
       this.localMediaStream.removeTrack(this.localMediaStream.getVideoTracks()[0]);
       this.localMediaStream.addTrack(this.displayMediaStream.getVideoTracks()[0]);
     }
