@@ -150,7 +150,7 @@ export class StreamService {
     participant.connection = new RTCPeerConnection({iceServers: getIceServers()});
     participant.isScreenShared = false;
 
-    this.userMediaStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+    this.userMediaStream = await navigator.mediaDevices.getUserMedia({audio: true, video: {height: 320, width: 240}});
     this.localMediaStream = new MediaStream(this.userMediaStream.getTracks());
 
     this.audioSender = participant.connection.addTrack(this.userMediaStream.getAudioTracks()[0], this.userMediaStream);
